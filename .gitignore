@@ -1,0 +1,17 @@
+# Windows system files
+Thumbs.db
+Desktop.ini
+
+# BatchTools installation files
+BatchToolsData/
+*.zip
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Python cache files (if any)
+__pycache__/
+*.pyc
+*.pyo
