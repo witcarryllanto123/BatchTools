@@ -9,9 +9,6 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: Change to the script directory
-cd /d "%~dp0"
-
 :: Check if required files exist
 set "missing_files="
 if not exist "BatchTools.zip" set "missing_files=!missing_files! BatchTools.zip"

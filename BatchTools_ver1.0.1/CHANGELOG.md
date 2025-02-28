@@ -1,3 +1,6 @@
+## 2025-02-28 11:20 - update
+ECHO is off.
+----------------------------------------
 ## 2025-02-28 11:05 - Updates
 Fixed multiple problems and bugsnInstalls Python Properyly on devices that doesnt have python intalled(python is needed to run yt-dlp)nI will add easter eggs latern
 ----------------------------------------

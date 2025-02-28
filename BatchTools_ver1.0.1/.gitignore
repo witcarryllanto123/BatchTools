@@ -7,7 +7,7 @@ BatchToolsData/
 BatchToolsData.zip
 
 # Unnecessary files
-*.cmd
+git_update.cmd
 
 # Logs and temporary files
 *.log
