@@ -4,7 +4,10 @@ Desktop.ini
 
 # BatchTools installation files
 BatchToolsData/
-*.zip
+BatchToolsData.zip
+
+# Unnecessary files
+*.cmd
 
 # Logs and temporary files
 *.log

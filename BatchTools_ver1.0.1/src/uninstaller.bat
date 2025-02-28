@@ -5,13 +5,22 @@ setlocal enabledelayedexpansion
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo Requesting administrator privileges...
-    powershell -Command "Start-Process cmd -ArgumentList '/c "%~fnx0"' -Verb RunAs"
+    powershell -Command "Start-Process cmd -ArgumentList '/c \"%~fnx0\"' -Verb RunAs"
     exit /b
 )
 
-:: Define installation directory
+:: Detect actual Desktop path (OneDrive or Default)
+for /f "usebackq tokens=2*" %%A in (`reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop 2^>nul`) do set "desktopPath=%%B"
+if "%desktopPath%"=="" set "desktopPath=%UserProfile%\Desktop"
+
+:: Detect Start Menu path
+for /f "usebackq tokens=2*" %%A in (`reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" /v "Programs" 2^>nul`) do set "startMenuPath=%%B"
+if "%startMenuPath%"=="" set "startMenuPath=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
+
+:: Define paths
 set "installPath=C:\ProgramData\BatchToolsData"
-set "shortcutPath=%UserProfile%\OneDrive\Desktop\Tools.lnk"
+set "shortcutPath=%desktopPath%\Tools.lnk"
+set "shortcutProgPath=%startMenuPath%\Tools.lnk"
 
 :: Remove desktop shortcut
 if exist "%shortcutPath%" (
@@ -19,6 +28,14 @@ if exist "%shortcutPath%" (
     echo Removed desktop shortcut.
 ) else (
     echo No desktop shortcut found.
+)
+
+:: Remove Start Menu shortcut
+if exist "%shortcutProgPath%" (
+    del "%shortcutProgPath%"
+    echo Removed Start Menu shortcut.
+) else (
+    echo No Start Menu shortcut found.
 )
 
 :: Remove yt-dlp from BatchToolsData (but NOT from Python Scripts)

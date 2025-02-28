@@ -9,7 +9,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: Change to the repository directory (update the path if needed)
+:: Change to the script directory
 cd /d "%~dp0"
 
 :: Check if required files exist
@@ -23,16 +23,6 @@ if not "!missing_files!"=="" (
     echo ERROR: The following required files are missing:
     echo !missing_files!
     echo Please check your repository before committing.
-    pause
-    exit /b
-)
-
-:: Check if there are unstaged changes
-git status --porcelain > changes.txt
-set /p "status_check=" < changes.txt
-del changes.txt
-if "!status_check!"=="" (
-    echo No changes detected. Nothing to commit.
     pause
     exit /b
 )
@@ -55,20 +45,26 @@ goto changelog_loop
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set "date_stamp=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2% %datetime:~8,2%:%datetime:~10,2%"
 
-:: Append the changelog entry to CHANGELOG.md
-echo ## %date_stamp% - %commit_msg% >> CHANGELOG.md
-echo !changelog_entry! >> CHANGELOG.md
-echo ---------------------------------------- >> CHANGELOG.md
+:: Prepend the changelog entry (newest entry at the top)
+(
+    echo ## %date_stamp% - %commit_msg%
+    echo !changelog_entry!
+    echo ----------------------------------------
+    type CHANGELOG.md
+) > CHANGELOG.tmp
+move /Y CHANGELOG.tmp CHANGELOG.md >nul 2>&1
 
-:: Add files to Git
-echo Adding changes...
-git add .
+:: Force add all files (including already tracked ones)
+echo Adding all files...
+git add --all
 
+:: Force commit
 echo Committing changes...
-git commit -m "%commit_msg%"
+git commit -m "%commit_msg%" --allow-empty
 
-echo Pushing to GitHub...
-git push origin main
+:: Force push changes to GitHub
+echo Pushing changes...
+git push --force origin main
 
 :: Check for errors
 if %errorlevel% neq 0 (
@@ -80,3 +76,4 @@ if %errorlevel% neq 0 (
 echo Update successfully pushed to GitHub and CHANGELOG.md updated!
 pause
 exit /b
+REM End of file

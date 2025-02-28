@@ -9,7 +9,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: Ensure script is in the correct directory
+:: Ensure script is in the correct working directory
 cd /d "%~dp0"
 
 :: Define installation directory
@@ -48,69 +48,178 @@ if not exist "%installPath%\Tools.bat" (
     exit /b
 )
 
-:: Check if Python is installed
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo Python is not installed. Installing portable Python...
+:: Detect installed Python (including C:\Python312)
+set "pythonExec="
+for /f "delims=" %%P in ('where python 2^>nul') do (
+    if /i not "%%P"=="%UserProfile%\AppData\Local\Microsoft\WindowsApps\python.exe" (
+        set "pythonExec=%%P"
+    )
+)
+
+:: If Python isn't found, check common install locations
+if not defined pythonExec (
+    if exist "C:\Python312\python.exe" set "pythonExec=C:\Python312\python.exe"
+)
+
+:: If Python still isn't found, install portable version
+if not defined pythonExec (
+    echo Python is not installed or is using Microsoft Store alias. Installing portable Python...
     set "pythonPath=%installPath%\Python"
 
     :: Download and extract Python
     if not exist "%pythonPath%\python.exe" (
-        powershell -Command "$url='https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-amd64.zip'; $output='%installPath%\python.zip'; Invoke-WebRequest -Uri $url -OutFile $output"
-        
-        if exist "%installPath%\python.zip" (
-            powershell -Command "Expand-Archive -Path '%installPath%\python.zip' -DestinationPath '%pythonPath%' -Force"
-            del "%installPath%\python.zip"
-            echo Python installed successfully.
-        ) else (
+        echo Downloading Python...
+        powershell -Command "& {Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-amd64.zip' -OutFile '%installPath%\python.zip'}"
+
+        if not exist "%installPath%\python.zip" (
             echo ERROR: Failed to download Python!
             exit /b
         )
+
+        echo Extracting Python...
+        powershell -Command "& {Expand-Archive -Path '%installPath%\python.zip' -DestinationPath '%pythonPath%' -Force}"
+        del "%installPath%\python.zip"
+
+        if not exist "%pythonPath%\python.exe" (
+            echo ERROR: Python extraction failed!
+            exit /b
+        )
+
+        echo Python installed successfully.
     )
     set "pythonExec=%pythonPath%\python.exe"
 ) else (
-    echo Python is already installed on the system.
-    for /f "delims=" %%P in ('where python') do set "pythonExec=%%P"
+    echo Python is already installed at "%pythonExec%".
 )
 
-:: Install yt-dlp using the detected Python
+:: ✅ Debugging: Check if python.exe actually exists
+if not exist "%pythonExec%" (
+    echo ERROR: Python installation failed or is not recognized.
+    echo Ensure Python is installed in "%installPath%\Python" or "C:\Python312".
+    echo.
+    echo Debug Info:
+    dir "%installPath%\Python"
+    exit /b
+)
+
+:: ✅ Verify Python runs correctly
+"%pythonExec%" --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: Python is installed but not working!
+    echo Ensure "%pythonExec%" can be executed.
+    exit /b
+)
+
+:: Manually set yt-dlp expected locations
+set "defaultYtDlpPath=C:\Users\%USERNAME%\AppData\Roaming\Python\Python312\Scripts\yt-dlp.exe"
 set "ytDlpPath=%installPath%\yt-dlp.exe"
-if not exist "%ytDlpPath%" (
-    echo Installing yt-dlp...
-    "%pythonExec%" -m pip install yt-dlp --no-warn-script-location
-    set "pythonScripts=%installPath%\Python\Scripts"
-    if exist "%pythonScripts%\yt-dlp.exe" (
-        copy "%pythonScripts%\yt-dlp.exe" "%ytDlpPath%" /Y
+
+:: Check if yt-dlp is already installed in the expected folder
+if exist "%defaultYtDlpPath%" (
+    echo Found yt-dlp in "%defaultYtDlpPath%".
+    copy "%defaultYtDlpPath%" "%ytDlpPath%" /Y
+    if exist "%ytDlpPath%" (
+        echo yt-dlp copied successfully to "%ytDlpPath%".
+    ) else (
+        echo ERROR: Failed to copy yt-dlp.
+        exit /b
+    )
+) else (
+    echo yt-dlp is not found in the default installation folder. Installing...
+    "%pythonExec%" -m pip install --no-warn-script-location --upgrade yt-dlp
+
+    if exist "%defaultYtDlpPath%" (
+        copy "%defaultYtDlpPath%" "%ytDlpPath%" /Y
         echo yt-dlp installed successfully.
     ) else (
         echo ERROR: yt-dlp installation failed!
         exit /b
     )
-) else (
-    echo yt-dlp is already installed.
 )
+
+:: ✅ Debugging: Show installed yt-dlp path
+if exist "%ytDlpPath%" (
+    echo yt-dlp is installed at "%ytDlpPath%".
+) else (
+    echo ERROR: yt-dlp installation failed!
+    exit /b
+)
+
+:: Check if FFmpeg is installed
+where ffmpeg >nul 2>nul
+if %errorlevel% neq 0 (
+    echo FFmpeg is not installed. Installing portable version...
+    set "ffmpegPath=%installPath%\FFmpeg"
+
+    :: Download and extract FFmpeg portable if not already present
+    if not exist "%ffmpegPath%\bin\ffmpeg.exe" (
+        powershell -Command "$url='https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-n5.1-latest-win64-lgpl.zip'; $output='%installPath%\ffmpeg.zip'; Invoke-WebRequest -Uri $url -OutFile $output"
+        
+        if exist "%installPath%\ffmpeg.zip" (
+            echo Extracting FFmpeg...
+            powershell -Command "Expand-Archive -Path '%installPath%\ffmpeg.zip' -DestinationPath '%ffmpegPath%' -Force"
+            del "%installPath%\ffmpeg.zip"
+            echo FFmpeg installed successfully.
+        ) else (
+            echo ERROR: Failed to download FFmpeg!
+            exit /b
+        )
+    )
+    
+    :: Verify FFmpeg installation
+    if not exist "%ffmpegPath%\bin\ffmpeg.exe" (
+        echo ERROR: FFmpeg installation failed or missing!
+        exit /b
+    ) else (
+        echo FFmpeg installed at "%ffmpegPath%\bin\ffmpeg.exe".
+    )
+) else (
+    echo FFmpeg is already installed on this system.
+)
+
 
 :: Detect actual Desktop path (OneDrive or Default)
 for /f "usebackq tokens=2*" %%A in (`reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop 2^>nul`) do set "desktopPath=%%B"
 if "%desktopPath%"=="" set "desktopPath=%UserProfile%\Desktop"
 
-:: Ensure paths use correct syntax
-set "desktopPath=%desktopPath:\=/%"
-set "installPath=%installPath:\=/%"
+:: Detect Start Menu path
+set "startMenuPath=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
-:: Create shortcut using PowerShell with icon support
+:: Ensure paths use correct syntax for PowerShell
+set "desktopPath=%desktopPath:\=\\%"
+set "installPath=%installPath:\=\\%"
+set "startMenuPath=%startMenuPath:\=\\%"
+
+:: Create Desktop Shortcut
+echo Creating desktop shortcut...
 powershell -ExecutionPolicy Bypass -NoProfile -Command ^
-    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%desktopPath%/Tools.lnk');" ^
-    "$s.TargetPath = '%installPath%/Tools.bat';" ^
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%desktopPath%\\Tools.lnk');" ^
+    "$s.TargetPath = '%installPath%\\Tools.bat';" ^
     "$s.WorkingDirectory = '%installPath%';" ^
-    "if (Test-Path '%installPath%/icon.ico') { $s.IconLocation = '%installPath%/icon.ico' };" ^
+    "if (Test-Path '%installPath%\\icon.ico') { $s.IconLocation = '%installPath%\\icon.ico' };" ^
     "$s.Save();"
 
-:: Verify shortcut was created
+:: Check if desktop shortcut was created
 if exist "%desktopPath%\Tools.lnk" (
-    echo Shortcut created successfully in "%desktopPath%".
+    echo Desktop shortcut created successfully.
 ) else (
-    echo ERROR: Failed to create shortcut! Try creating it manually.
+    echo ERROR: Failed to create desktop shortcut!
+)
+
+:: Create Start Menu Shortcut
+echo Creating Start Menu shortcut...
+powershell -ExecutionPolicy Bypass -NoProfile -Command ^
+    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%startMenuPath%\\Tools.lnk');" ^
+    "$s.TargetPath = '%installPath%\\Tools.bat';" ^
+    "$s.WorkingDirectory = '%installPath%';" ^
+    "if (Test-Path '%installPath%\\icon.ico') { $s.IconLocation = '%installPath%\\icon.ico' };" ^
+    "$s.Save();"
+
+:: Check if Start Menu shortcut was created
+if exist "%startMenuPath%\Tools.lnk" (
+    echo Start Menu shortcut created successfully.
+) else (
+    echo ERROR: Failed to create Start Menu shortcut!
 )
 
 echo Installation completed successfully.
