@@ -1,17 +1,19 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Check if running as administrator
+:: Ensure script runs as administrator
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo Requesting administrator privileges...
-    powershell -Command "Start-Process cmd -ArgumentList '/c \"%~fnx0\"' -Verb RunAs"
+    powershell -Command "Start-Process '%~fnx0' -Verb RunAs -Wait"
     exit /b
 )
 
-:: Ensure script is in the correct working directory
+:: Ensure script runs in the correct working directory
 cd /d "%~dp0"
 
+:: Proceed with installation...
+echo Installing BatchTools...
 :: Define installation directory
 set "installPath=C:\ProgramData\BatchToolsData"
 if not exist "%installPath%" mkdir "%installPath%" 2>nul
@@ -48,180 +50,180 @@ if not exist "%installPath%\Tools.bat" (
     exit /b
 )
 
-:: Detect installed Python (including C:\Python312)
-set "pythonExec="
-for /f "delims=" %%P in ('where python 2^>nul') do (
-    if /i not "%%P"=="%UserProfile%\AppData\Local\Microsoft\WindowsApps\python.exe" (
-        set "pythonExec=%%P"
-    )
-)
-
-:: If Python isn't found, check common install locations
-if not defined pythonExec (
-    if exist "C:\Python312\python.exe" set "pythonExec=C:\Python312\python.exe"
-)
-
-:: If Python still isn't found, install portable version
-if not defined pythonExec (
-    echo Python is not installed or is using Microsoft Store alias. Installing portable Python...
-    set "pythonPath=%installPath%\Python"
-
-    :: Download and extract Python
-    if not exist "%pythonPath%\python.exe" (
-        echo Downloading Python...
-        powershell -Command "& {Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-amd64.zip' -OutFile '%installPath%\python.zip'}"
-
-        if not exist "%installPath%\python.zip" (
-            echo ERROR: Failed to download Python!
-            exit /b
-        )
-
-        echo Extracting Python...
-        powershell -Command "& {Expand-Archive -Path '%installPath%\python.zip' -DestinationPath '%pythonPath%' -Force}"
-        del "%installPath%\python.zip"
-
-        if not exist "%pythonPath%\python.exe" (
-            echo ERROR: Python extraction failed!
-            exit /b
-        )
-
+:: Check if Python is installed system-wide
+where python >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Python is not installed. Installing Python system-wide...
+    winget install Python.Python.3
+    where python >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo ERROR: Python installation failed!
+        exit /b
+    ) else (
         echo Python installed successfully.
     )
-    set "pythonExec=%pythonPath%\python.exe"
 ) else (
-    echo Python is already installed at "%pythonExec%".
+    echo Python is already installed.
 )
 
-:: ✅ Debugging: Check if python.exe actually exists
-if not exist "%pythonExec%" (
-    echo ERROR: Python installation failed or is not recognized.
-    echo Ensure Python is installed in "%installPath%\Python" or "C:\Python312".
-    echo.
-    echo Debug Info:
-    dir "%installPath%\Python"
-    exit /b
-)
+:: Install yt-dlp using Python
+set "ytDlpPackagePath=C:\Users\%USERNAME%\AppData\Roaming\Python\Python312\site-packages\yt_dlp"
+set "ytDlpScriptsPath=C:\Users\%USERNAME%\AppData\Roaming\Python\Python312\Scripts\yt-dlp.exe"
+set "ytDlpDestPath=%installPath%\yt-dlp.exe"
 
-:: ✅ Verify Python runs correctly
-"%pythonExec%" --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: Python is installed but not working!
-    echo Ensure "%pythonExec%" can be executed.
-    exit /b
-)
-
-:: Manually set yt-dlp expected locations
-set "defaultYtDlpPath=C:\Users\%USERNAME%\AppData\Roaming\Python\Python312\Scripts\yt-dlp.exe"
-set "ytDlpPath=%installPath%\yt-dlp.exe"
-
-:: Check if yt-dlp is already installed in the expected folder
-if exist "%defaultYtDlpPath%" (
-    echo Found yt-dlp in "%defaultYtDlpPath%".
-    copy "%defaultYtDlpPath%" "%ytDlpPath%" /Y
-    if exist "%ytDlpPath%" (
-        echo yt-dlp copied successfully to "%ytDlpPath%".
-    ) else (
-        echo ERROR: Failed to copy yt-dlp.
-        exit /b
-    )
+:: Check if yt-dlp is already installed in site-packages
+if exist "%ytDlpPackagePath%" (
+    echo yt-dlp package found in site-packages.
 ) else (
-    echo yt-dlp is not found in the default installation folder. Installing...
+    echo yt-dlp is not installed. Installing...
     "%pythonExec%" -m pip install --no-warn-script-location --upgrade yt-dlp
-
-    if exist "%defaultYtDlpPath%" (
-        copy "%defaultYtDlpPath%" "%ytDlpPath%" /Y
-        echo yt-dlp installed successfully.
-    ) else (
-        echo ERROR: yt-dlp installation failed!
-        exit /b
-    )
 )
 
-:: ✅ Debugging: Show installed yt-dlp path
-if exist "%ytDlpPath%" (
-    echo yt-dlp is installed at "%ytDlpPath%".
+:: Check if yt-dlp.exe is in Scripts and copy it
+if exist "%ytDlpScriptsPath%" (
+    echo yt-dlp.exe found in Scripts folder.
+    copy "%ytDlpScriptsPath%" "%ytDlpDestPath%" /Y
+    if exist "%ytDlpDestPath%" (
+        echo yt-dlp installed successfully in BatchToolsData.
+    ) else (
+        echo ERROR: Failed to copy yt-dlp.exe to BatchToolsData.
+        exit /b
+    )
 ) else (
-    echo ERROR: yt-dlp installation failed!
+    echo ERROR: yt-dlp.exe not found after installation!
+    echo Please check Python installation and manually install yt-dlp.
     exit /b
 )
 
-:: Check if FFmpeg is installed
+
+:: Check if Chocolatey is installed
+where choco >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Chocolatey is not installed. Installing Chocolatey...
+    winget install chocolatey
+    where choco >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo ERROR: Chocolatey installation failed!
+        exit /b
+    ) else (
+        echo Chocolatey installed successfully.
+    )
+)
+
+:: Install FFmpeg if not found
 where ffmpeg >nul 2>nul
 if %errorlevel% neq 0 (
-    echo FFmpeg is not installed. Installing portable version...
-    set "ffmpegPath=%installPath%\FFmpeg"
-
-    :: Download and extract FFmpeg portable if not already present
-    if not exist "%ffmpegPath%\bin\ffmpeg.exe" (
-        powershell -Command "$url='https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-n5.1-latest-win64-lgpl.zip'; $output='%installPath%\ffmpeg.zip'; Invoke-WebRequest -Uri $url -OutFile $output"
-        
-        if exist "%installPath%\ffmpeg.zip" (
-            echo Extracting FFmpeg...
-            powershell -Command "Expand-Archive -Path '%installPath%\ffmpeg.zip' -DestinationPath '%ffmpegPath%' -Force"
-            del "%installPath%\ffmpeg.zip"
-            echo FFmpeg installed successfully.
-        ) else (
-            echo ERROR: Failed to download FFmpeg!
-            exit /b
-        )
-    )
-    
-    :: Verify FFmpeg installation
-    if not exist "%ffmpegPath%\bin\ffmpeg.exe" (
-        echo ERROR: FFmpeg installation failed or missing!
+    echo Installing FFmpeg...
+    choco install ffmpeg -y
+    where ffmpeg >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo ERROR: FFmpeg installation failed!
         exit /b
     ) else (
-        echo FFmpeg installed at "%ffmpegPath%\bin\ffmpeg.exe".
+        echo FFmpeg installed successfully.
     )
 ) else (
-    echo FFmpeg is already installed on this system.
+    echo FFmpeg is already installed.
 )
 
-
-:: Detect actual Desktop path (OneDrive or Default)
+:: Detect actual Desktop path for current user (OneDrive or Default)
 for /f "usebackq tokens=2*" %%A in (`reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop 2^>nul`) do set "desktopPath=%%B"
 if "%desktopPath%"=="" set "desktopPath=%UserProfile%\Desktop"
 
-:: Detect Start Menu path
+:: Detect Start Menu path for current user
 set "startMenuPath=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
-:: Ensure paths use correct syntax for PowerShell
-set "desktopPath=%desktopPath:\=\\%"
-set "installPath=%installPath:\=\\%"
-set "startMenuPath=%startMenuPath:\=\\%"
+:: Ensure Start Menu path exists
+if not exist "%startMenuPath%" mkdir "%startMenuPath%"
 
-:: Create Desktop Shortcut
-echo Creating desktop shortcut...
+:: Create Desktop and Start Menu shortcuts for current user
+echo Creating shortcuts for the current user...
 powershell -ExecutionPolicy Bypass -NoProfile -Command ^
-    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%desktopPath%\\Tools.lnk');" ^
-    "$s.TargetPath = '%installPath%\\Tools.bat';" ^
-    "$s.WorkingDirectory = '%installPath%';" ^
-    "if (Test-Path '%installPath%\\icon.ico') { $s.IconLocation = '%installPath%\\icon.ico' };" ^
-    "$s.Save();"
+    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%desktopPath%\BatchTools.lnk');" ^
+    "$s.TargetPath='%installPath%\Tools.bat';" ^
+    "$s.WorkingDirectory='%installPath%';" ^
+    "if (Test-Path '%installPath%\icon.ico') { $s.IconLocation='%installPath%\icon.ico' };" ^
+    "$s.Save();" >nul 2>&1
 
-:: Check if desktop shortcut was created
-if exist "%desktopPath%\Tools.lnk" (
+powershell -ExecutionPolicy Bypass -NoProfile -Command ^
+    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%startMenuPath%\BatchTools.lnk');" ^
+    "$s.TargetPath='%installPath%\Tools.bat';" ^
+    "$s.WorkingDirectory='%installPath%';" ^
+    "if (Test-Path '%installPath%\icon.ico') { $s.IconLocation='%installPath%\icon.ico' };" ^
+    "$s.Save();" >nul 2>&1
+
+:: Verify shortcut creation
+if exist "%desktopPath%\BatchTools.lnk" echo Desktop shortcut created successfully.
+if exist "%startMenuPath%\BatchTools.lnk" echo Start Menu shortcut created successfully.
+
+:: Detect Other User Profiles and Skip System Accounts
+echo Checking for other user profiles...
+for /d %%U in ("C:\Users\*") do (
+    set "otherUser=%%~nxU"
+    
+    :: Skip system users like DefaultAppPool, Public, etc.
+    if /i not "!otherUser!"=="Public" if /i not "!otherUser!"=="DefaultAppPool" (
+        set "otherUserDesktop=%%U\Desktop"
+        set "otherUserStartMenu=%%U\AppData\Roaming\Microsoft\Windows\Start Menu\Programs"
+
+        if exist "%%U" (
+            echo Do you want to install BatchTools shortcuts for "!otherUser!"? (Y/N)
+            set /p "installForOtherUser="
+            if /i "!installForOtherUser!"=="Y" (
+                echo Creating shortcuts for user "!otherUser!"...
+                
+                :: Ensure the Start Menu path exists
+                if not exist "!otherUserStartMenu!" mkdir "!otherUserStartMenu!"
+
+                powershell -ExecutionPolicy Bypass -NoProfile -Command ^
+                    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!otherUserDesktop!\BatchTools.lnk');" ^
+                    "$s.TargetPath='%installPath%\Tools.bat';" ^
+                    "$s.WorkingDirectory='%installPath%';" ^
+                    "if (Test-Path '%installPath%\icon.ico') { $s.IconLocation='%installPath%\icon.ico' };" ^
+                    "$s.Save();" >nul 2>&1
+
+                powershell -ExecutionPolicy Bypass -NoProfile -Command ^
+                    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!otherUserStartMenu!\BatchTools.lnk');" ^
+                    "$s.TargetPath='%installPath%\Tools.bat';" ^
+                    "$s.WorkingDirectory='%installPath%';" ^
+                    "if (Test-Path '%installPath%\icon.ico') { $s.IconLocation='%installPath%\icon.ico' };" ^
+                    "$s.Save();" >nul 2>&1
+
+                echo Shortcuts created for "!otherUser!".
+            ) else (
+                echo Skipped creating shortcuts for "!otherUser!".
+            )
+        )
+    )
+)
+
+echo Shortcut setup complete.
+
+:: Verify shortcuts
+if exist "%desktopPath%\BatchTools.lnk" (
     echo Desktop shortcut created successfully.
 ) else (
     echo ERROR: Failed to create desktop shortcut!
 )
-
-:: Create Start Menu Shortcut
-echo Creating Start Menu shortcut...
-powershell -ExecutionPolicy Bypass -NoProfile -Command ^
-    "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%startMenuPath%\\Tools.lnk');" ^
-    "$s.TargetPath = '%installPath%\\Tools.bat';" ^
-    "$s.WorkingDirectory = '%installPath%';" ^
-    "if (Test-Path '%installPath%\\icon.ico') { $s.IconLocation = '%installPath%\\icon.ico' };" ^
-    "$s.Save();"
-
-:: Check if Start Menu shortcut was created
-if exist "%startMenuPath%\Tools.lnk" (
+if exist "%startMenuPath%\BatchTools.lnk" (
     echo Start Menu shortcut created successfully.
 ) else (
     echo ERROR: Failed to create Start Menu shortcut!
 )
+echo.
+echo Completing installation...
+echo ====================================================================================================
+:: Define total progress length
+set "progressBarLength=100"
 
+:: Start progress
+for /l %%i in (1,1,%progressBarLength%) do (
+    set /p "=#" <nul
+    timeout /nobreak /t 0.1 >nul 2>&1
+)
+echo.
+echo ====================================================================================================
+echo.
 echo Installation completed successfully.
 pause
 exit /b

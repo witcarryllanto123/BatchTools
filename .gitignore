@@ -2,12 +2,8 @@
 Thumbs.db
 Desktop.ini
 
-# BatchTools installation files
-BatchToolsData/
-BatchToolsData.zip
-
 # Unnecessary files
-git_update.cmd
+*.cmd
 
 # Logs and temporary files
 *.log
