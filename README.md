@@ -14,7 +14,7 @@
 ## Installation
 1. **Download and Extract**  
    - Download the repository as a ZIP file or clone it.
-   - DONOT DELETE ANYTHING ON THE DIRECTORY
+   - `DONOT DELETE ANYTHING ON THE DIRECTORY`
 
 2. **Run the Installer**  
    - Double-click `installer.bat` and allow administrator privileges.
@@ -28,7 +28,7 @@
 
 ## Uninstallation
 1. Open `BatchTools.lnk` and choose option `11` to uninstall.
-2. Alternatively, run `uninstaller.bat` inside the installation directory( Which is     C:\ProgramData\BatchTools, or %LocalAppData%\BatchToolsData(If you didnt find the    C:\ProgramData\BatchTools path)) or use the Uninstaller on your search menu
+2. Alternatively, run `uninstaller.bat` inside the installation directory( Which is     `C:\Program Files\BatchTools`, or `%LocalAppData%\BatchToolsData(If you didnt find the    C:\ProgramData\BatchTools path))` `or use the Uninstaller on your search menu`
 
 ## Notes
 - If `yt-dlp` or `FFmpeg` is already installed, the installer will not remove them.
