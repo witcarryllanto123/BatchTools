@@ -1,0 +1,16 @@
+# Windows system files
+Thumbs.db
+Desktop.ini
+
+# Unnecessary files
+*.cmd
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Python cache files (if any)
+__pycache__/
+*.pyc
+*.pyo
